@@ -135,10 +135,20 @@ function process_line_attempt(event) {
             region: target.attr('data-region'),
         };
         if (source.uuid != dest.uuid || source.region != dest.region) {
-            if (target.attr('data-type') == 'reaction') {
+            if (reaction_start_item.attr('data-type') == 'reaction' && target.attr('data-type') == 'reaction') {
+                // do nothing; can't modulate a reaction by a reaction 
+            } else if (target.attr('data-type') == 'reaction') {
+                // TODO: make sure not already in the list
                 get_reaction_by_uuid(dest.uuid).sources.push({
                     region: source.region,
                     uuid: source.uuid,
+                    stoichiometry: 1
+                });
+            } else if (reaction_start_item.attr('data-type') == 'reaction') {
+                // TODO: make sure not already in the list
+                get_reaction_by_uuid(source.uuid).dests.push({
+                    region: dest.region,
+                    uuid: dest.uuid,
                     stoichiometry: 1
                 });
             } else {
@@ -558,6 +568,7 @@ function insert_reaction(x, y, source, source_region, dest, dest_region) {
             draw_connections();
         }
     });
+    setup_reaction_source(new_item);
     new_item.find('input').on('input', resize_input).on('input', update_reaction_name).on('change', update_reaction_name);
     redraw();
 }
@@ -591,6 +602,10 @@ function insert_species(uuid, x, y) {
             draw_connections();
         }
     });
+    setup_reaction_source(new_item);
+}
+
+function setup_reaction_source(new_item) {
     new_item.mouseenter(function() {
         function my_mousedown(event) {
             active_mode = 'drawreaction';
@@ -614,7 +629,6 @@ function insert_species(uuid, x, y) {
             new_item.off('mousedown', my_mousedown);
             clearTimeout(mode_timer);
         });
-
     });
 }
 
