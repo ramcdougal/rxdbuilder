@@ -56,7 +56,7 @@
         accept: "#ion_list > li",
         greedy: true,
         drop: function(event, ui) {
-            insert_ion.call(this, $(ui.draggable).attr('data-uuid'), ui.helper.offset().left, ui.helper.offset().top);
+            insert_species.call(this, $(ui.draggable).attr('data-uuid'), ui.helper.offset().left, ui.helper.offset().top);
             return true;
         }
     });
@@ -73,10 +73,10 @@
             console.log('drop');
             var uuid = $(ui.draggable).attr('data-uuid');
             console.log('uuid', uuid);
-            for (var i = 0; i < active_ions.length; i++) {
-                var my_ion = active_ions[i];
+            for (var i = 0; i < active_species.length; i++) {
+                var my_ion = active_species[i];
                 if (my_ion.uuid == uuid) {
-                    active_ions.splice(i, 1);
+                    active_species.splice(i, 1);
                     // graphically remove species from regions where they don't belong
                     $('.placedion').each(function() {
                         var item = $(this);
@@ -93,7 +93,7 @@
 
 
 
-    active_ions = default_ions;
+    active_species = default_species;
     active_regions = default_regions;
     redraw();
     $('.dynamic-width').on('input', resize_input);
@@ -130,7 +130,7 @@ function update_region_label() {
 }
 
 function redraw() {
-    setup_ion_list(active_ions);
+    setup_ion_list(active_species);
     setup_regions(active_regions);
 }
 
@@ -161,7 +161,7 @@ function textWidth(content){
     return(width);
 };
 
-var default_ions = [
+var default_species = [
     {
         'name': 'ca',
         'charge': 2,
@@ -189,7 +189,7 @@ var default_ions = [
 ];
 
 function new_ion() {
-    active_ions.push({
+    active_species.push({
         'name': 'new',
         'charge': 0,
         regions: [],
@@ -214,10 +214,10 @@ var default_regions = [
         uuid: 'region-cyt'
     }
 ];
-var active_ions = [];
+var active_species = [];
 
 function setup_ion_list(my_ions) {
-    active_ions = my_ions;
+    active_species = my_ions;
     $('#ion_list').html('');
     for (var i = 0; i < my_ions.length; i++) {
         let my_ion = my_ions[i];
@@ -274,8 +274,8 @@ function update_charge() {
 }
 
 function get_species_by_uuid(my_uuid) {
-    for (var i = 0; i < active_ions.length; i++) {
-        let my_ion = active_ions[i];
+    for (var i = 0; i < active_species.length; i++) {
+        let my_ion = active_species[i];
         if (my_ion.uuid == my_uuid) {
             return my_ion;
         }
@@ -325,14 +325,24 @@ function ion_menu(item) {
     console.log(item);
 }
 
-function insert_ion(uuid, x, y) {
+function insert_species(uuid, x, y) {
     var species = get_species_by_uuid(uuid);
     var region_uuid = $(this).attr('data-uuid');
-    if (species.regions.includes(region_uuid)) {
-        // already have the ion in the region
-        return;
+    // check to make sure species is not already in the region
+    var my_regions = species.regions;
+    for (var i = 0; i < my_regions.length; i++) {
+        if (my_regions[i].uuid == region_uuid) {
+            return;
+        }
     }
-    species.regions.push(region_uuid);
+    my_regions.push(
+        {
+            uuid: region_uuid,
+            d: 0,
+            initial: 0,
+            rate: 0
+        }
+    );
     x = x - $(this).offset().left;
     y = y - $(this).offset().top;
     var new_item = $(`<div class="ionlib placedion" data-uuid="${uuid}" data-region="${region_uuid}" style="position: absolute; left: ${x}px; top: ${y}px"><span class="nameblock">${ion_html(get_species_by_uuid(uuid))}</span></div>`);
