@@ -109,11 +109,27 @@
     $('#templinediv').mousemove(draw_handler2).mouseup(process_line_attempt);
   });
 
+var all_connections = [];
+
 function process_line_attempt(event) {
     active_mode = 'drag';
     $('#templinediv').hide();
     var target = document.elementFromPoint(event.pageX, event.pageY).closest('.placedspecies');
-    console.log('process_line_attempt', reaction_start_item, target);
+    if (target) {
+        target = $(target);
+        var new_connection = {
+            source: {
+                uuid: reaction_start_item.attr('data-uuid'),
+                region: reaction_start_item.attr('data-region'),
+            },
+            dest: {
+                uuid: target.attr('data-uuid'),
+                region: target.attr('data-region'),
+            }
+        };
+        all_connections.push(new_connection);
+        console.log('new line', new_connection);
+    }
     restore_handler();
 }
 
@@ -174,11 +190,22 @@ function resize_input() {
     $(this).css({width: textWidth($(this).val())});
 }
 
+// SVG markers adapted from @Phrogz answer to https://stackoverflow.com/questions/11808860/how-to-place-arrow-head-triangles-on-svg-lines
+var arrow_defs = `<defs>
+  <marker id='arrow' orient="auto"
+    markerWidth='30' markerHeight='30'
+    refX='0.1' refY='15'>
+    <!-- triangle pointing right (+x) -->
+    <path d='M0,0 V30 L15,15 Z' fill="black"/>
+  </marker>
+</defs>`
+
 function draw_handler2(event) {
     console.log('draw_handler2');
     if (event.buttons == 1 && active_mode == 'drawreaction') {
-        $('#templine').html(`<line x1="${reaction_start_x}" y1="${reaction_start_y}" x2="${event.pageX}" y2="${event.pageY}" stroke="black" />`);
-        console.log(`<line x1="${reaction_start_x}" y1="${reaction_start_y}" x2="${event.pageX}" y2="${event.pageY}" stroke="black" />`)
+        //$('#templine').html(`${arrow_defs}<line marker-mid='url(#arrow)' x1="${reaction_start_x}" y1="${reaction_start_y}" x2="${event.pageX}" y2="${event.pageY}" stroke="black" />`);
+        $('#templine').html(`${arrow_defs}<polyline marker-end='url(#arrow)' stroke-width='1' points="${reaction_start_x},${reaction_start_y} ${event.pageX},${event.pageY}" stroke="black" />`);
+        console.log(`${arrow_defs}<polyline marker-end='url(#arrow)' stroke-width='1' points="${reaction_start_x},${reaction_start_y} ${event.pageX},${event.pageY}" stroke="black" />`);
         
     } else {
         restore_handler();
@@ -186,6 +213,7 @@ function draw_handler2(event) {
         $('#templinediv').hide();
     }
 }
+
 
 
 function sync_numbers() {
@@ -544,5 +572,6 @@ function getuuid(prefix) {
 <div id="templinediv" style="z-index:1000; position:absolute; top:0px; left:0px; right:0px; bottom:0px; display:none">
     <svg id="templine" style="width:100%; height:100%"></svg>
 </div>
+<div id="alllines" style="z-index:1000; position:absolute; top:0px; left:0px; right:0px; bottom:0px; pointer-events:none"></div>
 </body>
 </html>
