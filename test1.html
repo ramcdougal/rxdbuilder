@@ -123,7 +123,7 @@
 function process_line_attempt(event) {
     active_mode = 'drag';
     $('#templinediv').hide();
-    var target = document.elementFromPoint(event.pageX, event.pageY).closest('.placedspecies');
+    var target = document.elementFromPoint(event.pageX, event.pageY).closest('.reactionTarget');
     if (target) {
         target = $(target);
         var source = {
@@ -134,11 +134,18 @@ function process_line_attempt(event) {
             uuid: target.attr('data-uuid'),
             region: target.attr('data-region'),
         };
-        insert_reaction((event.pageX + reaction_start_x) / 2, (event.pageY + reaction_start_y) / 2, source.uuid, source.region, dest.uuid, dest.region);
-        var new_connection = {
-            source: source,
-            dest: dest
-        };
+        if (source.uuid != dest.uuid || source.region != dest.region) {
+            if (target.attr('data-type') == 'reaction') {
+                get_reaction_by_uuid(dest.uuid).sources.push({
+                    region: source.region,
+                    uuid: source.uuid,
+                    stoichiometry: 1
+                });
+            } else {
+                insert_reaction((event.pageX + reaction_start_x) / 2, (event.pageY + reaction_start_y) / 2, source.uuid, source.region, dest.uuid, dest.region);
+            }
+        }
+
         draw_connections();
     }
     restore_handler();
@@ -541,7 +548,7 @@ function insert_reaction(x, y, source, source_region, dest, dest_region) {
         uuid: uuid 
     };
     active_reactions.push(new_reaction);
-    var new_item = $(`<div class="reaction" data-type="reaction" data-uuid="${uuid}" style="position: absolute; left: ${x}px; top: ${y}px">
+    var new_item = $(`<div class="reaction reactionTarget" data-type="reaction" data-uuid="${uuid}" style="position: absolute; left: ${x}px; top: ${y}px">
         <input type="text" data-uuid="${uuid}" class="reactionlabel dynamic-width" id="extracellularlabel"/></div>`);
     $('body').append(new_item);
     new_item.draggable({
@@ -575,7 +582,7 @@ function insert_species(uuid, x, y) {
     );
     x = x - $(this).offset().left;
     y = y - $(this).offset().top;
-    var new_item = $(`<div class="species_icon_b placedspecies" data-type="species" data-uuid="${uuid}" data-region="${region_uuid}" style="position: absolute; left: ${x}px; top: ${y}px"><span class="nameblock">${ion_html(get_species_by_uuid(uuid))}</span></div>`);
+    var new_item = $(`<div class="species_icon_b placedspecies reactionTarget" data-type="species" data-uuid="${uuid}" data-region="${region_uuid}" style="position: absolute; left: ${x}px; top: ${y}px"><span class="nameblock">${ion_html(get_species_by_uuid(uuid))}</span></div>`);
     $(this).append(new_item);
     new_item.draggable({
         containment: 'parent',
@@ -585,24 +592,27 @@ function insert_species(uuid, x, y) {
         }
     });
     new_item.mouseenter(function() {
+        function my_mousedown(event) {
+            active_mode = 'drawreaction';
+            reaction_start_x = event.pageX;
+            reaction_start_y = event.pageY;
+            reaction_start_item = new_item;
+            $('#templinediv').show();
+            $('#templine').html('');
+        }
         mode_timer = setTimeout(function() {
             new_item.draggable('disable').css('cursor', 'crosshair');
             $('.innerregion').draggable('disable');
-            new_item.mousedown(function(event) {
-                active_mode = 'drawreaction';
-                reaction_start_x = event.pageX;
-                reaction_start_y = event.pageY;
-                reaction_start_item = new_item;
-                $('#templinediv').show();
-                $('#templine').html('');
-            });
+            new_item.mousedown(my_mousedown);
         },
-            500
+            1000
         );
         new_item.mouseleave(function(event) {
             if (event.buttons != 1) {
                 restore_handler();
             }
+            new_item.off('mousedown', my_mousedown);
+            clearTimeout(mode_timer);
         });
 
     });
