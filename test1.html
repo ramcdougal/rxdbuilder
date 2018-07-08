@@ -16,6 +16,13 @@
           z-index: 1;
           background-color: white;
       }
+      .reaction {
+          background-color: white;
+          width: 10em;
+          height: 4em;
+          border: 1px solid black;
+          z-index: 2;
+      }
       .regioncontrols {
           position: absolute;
           left: 0;
@@ -32,6 +39,12 @@
           float: right;
       }
       .regionlabel {
+          border: none;
+          text-align: left;
+          width: 10em;
+          font-weight: bold;
+      }
+      .reactionlabel {
           border: none;
           text-align: left;
           width: 10em;
@@ -73,9 +86,7 @@
     $('#trashcan').droppable({
         accept: '#ion_list > li',
         drop: function(event, ui) {
-            console.log('drop');
             var uuid = $(ui.draggable).attr('data-uuid');
-            console.log('uuid', uuid);
             for (var i = 0; i < active_species.length; i++) {
                 var my_ion = active_species[i];
                 if (my_ion.uuid == uuid) {
@@ -109,25 +120,25 @@
     $('#templinediv').mousemove(draw_handler2).mouseup(process_line_attempt);
   });
 
-var all_connections = [];
-
 function process_line_attempt(event) {
     active_mode = 'drag';
     $('#templinediv').hide();
     var target = document.elementFromPoint(event.pageX, event.pageY).closest('.placedspecies');
     if (target) {
         target = $(target);
-        var new_connection = {
-            source: {
-                uuid: reaction_start_item.attr('data-uuid'),
-                region: reaction_start_item.attr('data-region'),
-            },
-            dest: {
-                uuid: target.attr('data-uuid'),
-                region: target.attr('data-region'),
-            }
+        var source = {
+            uuid: reaction_start_item.attr('data-uuid'),
+            region: reaction_start_item.attr('data-region'),
         };
-        all_connections.push(new_connection);
+        var dest = {
+            uuid: target.attr('data-uuid'),
+            region: target.attr('data-region'),
+        };
+        insert_reaction((event.pageX + reaction_start_x) / 2, (event.pageY + reaction_start_y) / 2, source.uuid, source.region, dest.uuid, dest.region);
+        var new_connection = {
+            source: source,
+            dest: dest
+        };
         draw_connections();
     }
     restore_handler();
@@ -148,7 +159,6 @@ function new_subregion() {
     var obj = $(html);
     $('#cyt').append(obj);
     obj.find('.deleteregion').click(function() {
-        console.log('delete', this);
         var uuid = $(this).attr('data-uuid');
         for (var i = 0; i < active_regions.length; i++) {
             var my_region = active_regions[i];
@@ -202,7 +212,6 @@ var arrow_defs = `<defs>
 </defs>`
 
 function draw_handler2(event) {
-    console.log('draw_handler2');
     if (event.buttons == 1 && active_mode == 'drawreaction') {
         //$('#templine').html(`${arrow_defs}<line marker-mid='url(#arrow)' x1="${reaction_start_x}" y1="${reaction_start_y}" x2="${event.pageX}" y2="${event.pageY}" stroke="black" />`);
         $('#templine').html(`${arrow_defs}<polyline marker-end='url(#arrow)' stroke-width='1' points="${reaction_start_x},${reaction_start_y} ${event.pageX},${event.pageY}" stroke="black" />`);
@@ -215,15 +224,26 @@ function draw_handler2(event) {
 
 function draw_connections() {
     // TODO: if everything is in the same region, draw it there so lines don't appear overtop of other regions
+    var all_connections = [];
+    for (var i = 0; i < active_reactions.length; i++) {
+        var my_reaction = active_reactions[i];
+        var my_obj = $(`[data-uuid="${my_reaction.uuid}"]`);
+        var my_position = my_obj.offset();
+        for (var j = 0; j < my_reaction.sources.length; j++) {
+            var my_source = my_reaction.sources[j];
+            var start = $(`[data-uuid="${my_source.uuid}"][data-region="${my_source.region}"]`).offset();
+            all_connections.push({x0: start.left + 20, y0: start.top + 20, x1: my_position.left + 20, y1: my_position.top + 20});
+        }
+        for (var j = 0; j < my_reaction.dests.length; j++) {
+            var my_dest = my_reaction.dests[j];
+            var start = $(`[data-uuid="${my_dest.uuid}"][data-region="${my_dest.region}"]`).offset();
+            all_connections.push({x1: start.left + 20, y1: start.top + 20, x0: my_position.left + 20, y0: my_position.top + 20});
+        }
+    }
     var svg = `${arrow_defs}`;
     for (var i = 0; i < all_connections.length; i++) {
         var my_connection = all_connections[i];
-        var source = my_connection.source;
-        var dest = my_connection.dest;
-        var start = $(`[data-uuid="${source.uuid}"][data-region="${source.region}"]`).offset();
-        var stop = $(`[data-uuid="${dest.uuid}"][data-region="${dest.region}"]`).offset();
-        console.log(start, stop);
-        svg = svg + `<polyline marker-end='url(#arrow)' stroke-width='1' points="${start.left + 20},${start.top + 20} ${stop.left + 20},${stop.top + 20}" stroke="black" />`;
+        svg = svg + `<polyline marker-end='url(#arrow)' stroke-width='1' points="${my_connection.x0},${my_connection.y0} ${my_connection.x1},${my_connection.y1}" stroke="black" />`;
     }
     svg = svg;
     $('#alllinessvg').html(svg);
@@ -264,6 +284,15 @@ function update_region_label() {
 function redraw() {
     setup_ion_list(active_species);
     setup_regions(active_regions);
+    setup_reactions(active_reactions);
+}
+
+function setup_reactions(my_reactions) {
+    for (var i = 0; i < my_reactions.length; i++) {
+        var my_reaction = my_reactions[i];
+        $(`.reactionlabel[data-uuid=${my_reaction.uuid}]`).val(my_reaction.name);
+    }
+    $('.reactionlabel').each(resize_input);
 }
 
 function setup_regions(my_regions) {
@@ -287,7 +316,7 @@ function setup_regions(my_regions) {
 
 function textWidth(content){
     $('#testspancontainer').show();
-    $('#testspan').html(content);
+    $('#testspan').html('<b>' + content + '</b>');
     var width = $('#testspan').outerWidth();
     $('#testspancontainer').hide();
     return(width);
@@ -414,6 +443,15 @@ function get_species_by_uuid(my_uuid) {
     }
 }
 
+function get_reaction_by_uuid(my_uuid) {
+    for (var i = 0; i < active_reactions.length; i++) {
+        let my_reaction = active_reactions[i];
+        if (my_reaction.uuid == my_uuid) {
+            return my_reaction;
+        }
+    }
+}
+
 function ion_html(my_ion) {
     let charge = '0';
     if (my_ion.charge == 1) {
@@ -477,6 +515,45 @@ function species_menu(item) {
 var mode_timer;
 var active_mode = 'drag';
 var reaction_start_item, reaction_start_x, reaction_start_y;
+var active_reactions = [];
+
+function insert_reaction(x, y, source, source_region, dest, dest_region) {
+    var uuid = getuuid('reaction-');
+    var new_reaction = {
+        sources: [
+            {
+                'uuid': source,
+                'stoichiometry': 1,
+                'region': source_region
+            }
+        ],
+        dests: [
+            {
+                'uuid': dest,
+                'stoichiometry': 1,
+                'region': dest_region
+            }
+        ],
+        states: [],
+        kf: 0,
+        kb: 0,
+        name: 'unnamed',
+        uuid: uuid 
+    };
+    active_reactions.push(new_reaction);
+    var new_item = $(`<div class="reaction" data-type="reaction" data-uuid="${uuid}" style="position: absolute; left: ${x}px; top: ${y}px">
+        <input type="text" data-uuid="${uuid}" class="reactionlabel dynamic-width" id="extracellularlabel"/></div>`);
+    $('body').append(new_item);
+    new_item.draggable({
+        'containment': '#extracellular',
+        drag: function() {
+            active_mode = 'drag';
+            draw_connections();
+        }
+    });
+    new_item.find('input').on('input', resize_input).on('input', update_reaction_name).on('change', update_reaction_name);
+    redraw();
+}
 
 function insert_species(uuid, x, y) {
     var species = get_species_by_uuid(uuid);
@@ -509,7 +586,6 @@ function insert_species(uuid, x, y) {
     });
     new_item.mouseenter(function() {
         mode_timer = setTimeout(function() {
-            console.log('timer', this);
             new_item.draggable('disable').css('cursor', 'crosshair');
             $('.innerregion').draggable('disable');
             new_item.mousedown(function(event) {
@@ -543,6 +619,13 @@ function update_placedspecies() {
     $('.placedspecies').each(function() {
         let uuid = $(this).attr('data-uuid');
         $(this).find('.nameblock').html(ion_html(get_species_by_uuid(uuid)));
+    });
+}
+
+function update_reaction_name() {
+    $('.reactionlabel').each(function() {
+        let uuid = $(this).attr('data-uuid');
+        get_reaction_by_uuid(uuid).name = $(this).val();        
     });
 }
 
