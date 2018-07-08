@@ -282,6 +282,13 @@ function sync_species_on_region() {
     get_species_on_region_by_uuid(uuid, region)[item.attr('data-field')] = val;
 }
 
+function sync_reaction() {
+    var item = $(this);
+    var uuid = item.attr('data-uuid');
+    var val = item.val();
+    get_reaction_by_uuid(uuid)[item.attr('data-field')] = val;
+}
+
 function get_region_by_uuid(uuid) {
     for (var i = 0; i < active_regions.length; i++) {
         var my_region = active_regions[i];
@@ -500,6 +507,96 @@ function get_species_on_region_by_uuid(species_uuid, region_uuid) {
     }
 }
 
+function reaction_menu(item) {
+    console.log('reaction_menu');
+    var nameblock = $(item).closest('.nameblock');
+    item = $(item).closest('div');
+    var table = item.find('table');
+    var uuid = item.attr('data-uuid');
+    var my_reaction = get_reaction_by_uuid(uuid);
+    if (table.length) {
+        table.remove();
+        item.append(nameblock);
+    } else {
+        var nameblock_html = nameblock.prop('outerHTML');
+        console.log(nameblock_html);
+        var data_info = ` data-uuid="${uuid}"  `;
+        var sources = '';
+        var dests = '';
+        var all_one_region = true;
+        var region0 = my_reaction.sources[0].region;
+        for (var i = 0; i < my_reaction.sources.length; i++) {
+            var source = my_reaction.sources[i];
+            if (source.region != region0) {
+                all_one_region = false;
+            }
+            var name = get_species_by_uuid(source.uuid).name;
+            sources = sources + `<tr><td style="text-align:right">${name}</td><td style="text-align:left"><input type="number" min="0" step="1" class="numbersepeciesreactionsetting" ${data_info} value="${source.stoichiometry}" data-side="sources" data-field="stoichiometry" data-i="${i}"/></td></tr>`
+        }
+        if (sources) {
+            sources = '<tr><td colspan="2">Source stoichiometry</td></tr>' + sources;
+        }
+        for (var i = 0; i < my_reaction.dests.length; i++) {
+            var dest = my_reaction.dests[i];
+            if (dest.region != region0) {
+                all_one_region = false;
+            }
+            var name = get_species_by_uuid(dest.uuid).name;
+            dests = dests + `<tr><td style="text-align:right">${name}</td><td style="text-align:left"><input type="number" min="0" step="1" class="numbersepeciesreactionsetting" ${data_info} value="${dest.stoichiometry}" data-side="dests" data-field="stoichiometry" data-i="${i}"/></td></tr>`;
+        }
+        if (dests) {
+            dests = '<tr><td colspan="2">Destination stoichiometry</td></tr>' + dests;
+        }
+        var one_region_line = '';
+        if (all_one_region) {
+            var all_regions_flag = '';
+            if (my_reaction.all_regions) {
+                all_regions_flag = ' checked';
+            }
+            one_region_line = `<tr><td></td><td style="text-align:left"><input type="checkbox" class="flagreactionsetting" data-field="all_regions" ${data_info} ${all_regions_flag}>All regions</td></tr>`
+
+        }
+        var mass_action_flag = '';
+        if (my_reaction.mass_action) {
+            mass_action_flag = ' checked';
+        }
+        var params = `<table>
+        <tr><td style="text-align:right">kf</td><td style="text-align:left"><input type="text" class="numberregionsetting" ${data_info} value="${my_reaction.kf}" data-field="kf"/></td></tr>
+        <tr><td style="text-align:right">kb</td><td style="text-align:left"><input type="text" class="numberregionsetting" ${data_info} value="${my_reaction.kb}" data-field="kb"/></td></tr>
+        <tr><td></td><td style="text-align:left"><input type="checkbox" data-field="mass_action" class="flagreactionsetting" ${data_info} ${mass_action_flag}>Mass action</td></tr>
+        ${one_region_line}
+        ${sources}
+        ${dests}
+        <tr><td></td><td><button>Add state variable</button></td></tr>
+        </table>`;
+        console.log(my_reaction);
+        var content = $(`<table style="width:100%"><tr><td style="padding-left:1em">${nameblock_html}</td><td style="padding-left:1em; text-align: left">${params}</td></tr></table>`)
+        item.html(content);
+        content.find('.numberregionsetting').on('input', sync_reaction).change(sync_reaction);
+        content.find('.numbersepeciesreactionsetting').on('input', sync_reaction_one_side).change(sync_reaction_one_side);
+        content.find('.flagreactionsetting').change(sync_reaction_flag);
+    }
+    item.find('.nameblock input').val(my_reaction.name);
+    item.find('.nameblock input').on('input', resize_input).on('input', update_reaction_name).on('change', update_reaction_name);
+}
+
+function sync_reaction_one_side() {
+    var item = $(this);
+    var uuid = item.attr('data-uuid');
+    var field = item.attr('data-field');
+    var side = item.attr('data-side');
+    var i = item.attr('data-i');
+    console.log(uuid, side, i, field);
+    get_reaction_by_uuid(uuid)[side][i][field] = item.val();
+}
+
+function sync_reaction_flag() {
+    var item = $(this);
+    var uuid = item.attr('data-uuid');
+    var field = item.attr('data-field');
+    get_reaction_by_uuid(uuid)[field] = this.checked ? true : false;
+}
+
 function species_menu(item) {
     console.log('species_menu');
     item = $(item).closest('div');
@@ -554,11 +651,13 @@ function insert_reaction(x, y, source, source_region, dest, dest_region) {
         kf: 0,
         kb: 0,
         name: 'unnamed',
-        uuid: uuid 
+        uuid: uuid,
+        mass_action: true,
+        all_regions: false
     };
     active_reactions.push(new_reaction);
     var new_item = $(`<div class="reaction reactionTarget" data-type="reaction" data-uuid="${uuid}" style="position: absolute; left: ${x}px; top: ${y}px">
-        <span class="nameblock"><input type="text" data-uuid="${uuid}" class="reactionlabel dynamic-width" id="extracellularlabel"/><br/>&#9776;</span></div>`);
+        <span class="nameblock"><input type="text" data-uuid="${uuid}" class="reactionlabel dynamic-width" id="extracellularlabel"/><br/><span onclick="reaction_menu(this)">&#9776;</span></span></div>`);
     $('body').append(new_item);
     new_item.draggable({
         'containment': '#extracellular',
@@ -692,7 +791,7 @@ function getuuid(prefix) {
 <div id="templinediv" style="z-index:1000; position:absolute; top:0px; left:0px; right:0px; bottom:0px; display:none">
     <svg id="templine" style="width:100%; height:100%"></svg>
 </div>
-<div id="alllines" style="z-index:2; position:absolute; top:0px; left:0px; right:0px; bottom:0px; pointer-events:none">
+<div id="alllines" style="opacity:.75; z-index:2; position:absolute; top:0px; left:0px; right:0px; bottom:0px; pointer-events:none">
     <svg id="alllinessvg" style="width:100%; height:100%"></svg>
 </div>
 </body>
