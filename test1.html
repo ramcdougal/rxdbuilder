@@ -42,8 +42,10 @@
           -webkit-appearance: none;
       }
       ul { list-style-type: none; margin: 0; padding: 0; margin-bottom: 10px; }
-      .ionli { margin: 0.5em; width: 3em; height: 3m; line-height: 2.5em; background-color: white; text-align: center; border: 1px black solid; border-radius: 3em}
-  </style>
+      .ionli { margin: 0.5em; width: 3em; height: 3em; line-height: 2.5em; background-color: white; text-align: center; border: 1px black solid; border-radius: 3em}
+      .ionlib { padding-top: 0.5em; width: 4em; height: 3.5em; background-color: white; text-align: center; border: 1px black solid; border-radius: 4em}
+</style>
+  
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
   <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
   <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
@@ -74,6 +76,13 @@
                 var my_ion = active_ions[i];
                 if (my_ion.uuid == uuid) {
                     active_ions.splice(i, 1);
+                    // graphically remove species from regions where they don't belong
+                    $('.placedion').each(function() {
+                        var item = $(this);
+                        if (item.attr('data-uuid') == uuid) {
+                            item.remove();
+                        }
+                    });
                     redraw();
                     return;
                 }
@@ -287,6 +296,8 @@ function ion_html(my_ion) {
     if (charge != 0) {
         result = `${result}<sup>${charge}</sup>`;
     }
+    //result = result + '<br/>&#9776;'
+    result += '<br/>d=42.1'
     return result;
 }
 
@@ -297,11 +308,10 @@ function insert_ion(uuid, x, y) {
         // already have the ion in the region
         return;
     }
-    console.log('dropped onto', region_uuid);
     species.regions.push(region_uuid);
     x = x - $(this).offset().left;
     y = y - $(this).offset().top;
-    var new_item = $(`<div class="ionli placedion" data-uuid="${uuid}" style="position: absolute; left: ${x}px; top: ${y}px">${ion_html(get_species_by_uuid(uuid))}</div>`);
+    var new_item = $(`<div class="ionlib placedion" data-uuid="${uuid}" style="position: absolute; left: ${x}px; top: ${y}px">${ion_html(get_species_by_uuid(uuid))}</div>`);
     $(this).append(new_item);
     new_item.draggable({
         containment: 'parent'
