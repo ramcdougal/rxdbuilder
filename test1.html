@@ -42,8 +42,9 @@
           -webkit-appearance: none;
       }
       ul { list-style-type: none; margin: 0; padding: 0; margin-bottom: 10px; }
-      .ionli { margin: 0.5em; width: 3em; height: 3em; line-height: 2.5em; background-color: white; text-align: center; border: 1px black solid; border-radius: 3em}
-      .ionlib { padding-top: 0.5em; width: 4em; height: 3.5em; background-color: white; text-align: center; border: 1px black solid; border-radius: 4em}
+      .ionli {cursor: pointer; margin: 0.5em; width: 3em; height: 3em; line-height: 2.5em; background-color: white; text-align: center; border: 1px black solid; border-radius: 3em}
+      .ionlib {cursor: pointer; padding-top: 0.5em; width: 4em; height: 3.5em; background-color: white; text-align: center; border: 1px black solid; border-radius: 4em}
+      .ionlic {cursor: pointer; padding-top: 0.5em; width: 20em; height: 5em; background-color: white; text-align: center; border: 1px black solid; border-radius: 4em}
 </style>
   
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
@@ -296,9 +297,32 @@ function ion_html(my_ion) {
     if (charge != 0) {
         result = `${result}<sup>${charge}</sup>`;
     }
-    //result = result + '<br/>&#9776;'
-    result += '<br/>d=42.1'
+    result = `<b>${result}</b>`;
+    result = result + '<br/><span onclick="ion_menu(this)">&#9776;</span>'
+    //result += '<br/>d=42.1'
     return result;
+}
+
+function ion_menu(item) {
+    console.log('ion_menu');
+    item = $(item).closest('div');
+    var main_html = ion_html(get_species_by_uuid(item.attr('data-uuid')));
+    if (item.hasClass('ionlib')) {
+        item.removeClass('ionlib');
+        item.addClass('ionlic');
+        var params = `<table>
+        <tr><td style="text-align:right">d</td><td style="text-align:left"><input type="number" value="42.1"/></td></tr>
+        <tr><td style="text-align:right">initial</td><td style="text-align:left"><input type="number" value="24"/></td></tr>
+        <tr><td style="text-align:right">rate</td><td style="text-align:left"><input type="text" value="0"/></td></tr>
+        </table>`
+
+        item.html(`<table style="width:100%"><tr><td style="padding-left:1em">${main_html}</td><td style="padding-left:1em; text-align: left">${params}</td></tr></table>`);
+    } else {
+        item.removeClass('ionlic');
+        item.addClass('ionlib');
+        item.html(main_html);
+    }
+    console.log(item);
 }
 
 function insert_ion(uuid, x, y) {
