@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>RxDBuilder</title>
+  <style>
+      body {
+          overflow:hidden;
+      }
+      .region {
+          overflow:hidden;
+      }
+      .innerregion {
+          z-index: 1;
+          background-color: white;
+      }
+      .regioncontrols {
+          position: absolute;
+          left: 0;
+          bottom: 0;
+          right: 0;
+          padding: 0.25em;
+          border: 1px solid black;
+      }
+      .numbersetting {
+          width: 4em;
+          text-align: right;
+      }
+      .regionlabel {
+          border: none;
+          text-align: left;
+          width: 10em;
+          font-weight: bold;
+      }
+      .ionlabel {
+          border: none;
+          width: 2em;
+      }
+      .chargeselect {
+          border:none;
+          -webkit-appearance: none;
+      }
+      ul { list-style-type: none; margin: 0; padding: 0; margin-bottom: 10px; }
+      .ionli { margin: 0.5em; width: 3em; height: 3m; line-height: 2.5em; background-color: white; text-align: center; border: 1px black solid; border-radius: 3em}
+  </style>
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
+  <link rel="stylesheet" href="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/themes/smoothness/jquery-ui.css">
+  <script src="https://ajax.googleapis.com/ajax/libs/jqueryui/1.12.1/jquery-ui.min.js"></script>
+  <script>
+  $(function() {
+    $('.region').droppable({
+        accept: "#ion_list > li",
+        greedy: true,
+        drop: function(event, ui) {
+            insert_ion.call(this, $(ui.draggable).attr('data-uuid'), ui.helper.offset().left, ui.helper.offset().top);
+            return true;
+        }
+    });
+    $('.innerregion').draggable({
+    }).resizable({
+        minHeight:50,
+        minWidth: 100,
+        // TODO: update minimums to keep ions and contained regions visible
+    });
+    $('#trashcan').droppable({
+        accept: '#ion_list > li',
+        drop: function(event, ui) {
+            console.log('drop');
+            var uuid = $(ui.draggable).attr('data-uuid');
+            console.log('uuid', uuid);
+            for (var i = 0; i < active_ions.length; i++) {
+                var my_ion = active_ions[i];
+                if (my_ion.uuid == uuid) {
+                    active_ions.splice(i, 1);
+                    redraw();
+                    return;
+                }
+            }
+        }
+    });
+
+
+
+    active_ions = default_ions;
+    active_regions = default_regions;
+    redraw();
+    $('.dynamic-width').on('input', resize_input);
+
+    $('.dynamic-width').each(resize_input);
+    $('#newspecies').click(new_ion);
+
+  });
+
+function resize_input() {
+    $(this).css({width: textWidth($(this).val())});
+}
+
+function redraw() {
+    setup_ion_list(active_ions);
+    setup_regions(active_regions);
+}
+
+function setup_regions(my_regions) {
+    for (var i = 0; i < my_regions.length; i++) {
+        var my_region = my_regions[i];
+        if (my_region.type == 'extracellular') {
+            // only one
+            $('#extracellulardx').val(my_region.dx);
+            $('#extracellularlabel').val(my_region.name);
+            $('#extracellulartortuosity').val(my_region.tortuosity);
+            $('#extracellularvolumefraction').val(my_region.volumefraction);
+        } else if (my_region.type == 'cyt') {
+            // only one
+            $('#cytvolumefraction').val(my_region.volumefraction);
+            $('#cytlabel').val(my_region.name);
+        } else {
+            console.log('unknown region', my_region);
+        }
+    }
+}
+
+function textWidth(content){
+    $('#testspancontainer').show();
+    $('#testspan').html(content);
+    var width = $('#testspan').outerWidth();
+    $('#testspancontainer').hide();
+    return(width);
+};
+
+var default_ions = [
+    {
+        'name': 'ca',
+        'charge': 2,
+        'regions': [],
+        'uuid': 'ion-1'
+    },
+    {
+        'name': 'k',
+        'charge': 1,
+        'regions': [],
+        'uuid': 'ion-2'
+    },
+    {
+        'name': 'na',
+        'charge': 1,
+        'regions': [],
+        'uuid': 'ion-3',
+    },
+    {
+        'name': 'cl',
+        'charge': -1,
+        'regions': [],
+        'uuid': 'ion-4'
+    }    
+];
+
+function new_ion() {
+    active_ions.push({
+        'name': 'new',
+        'charge': 0,
+        regions: [],
+        uuid: getuuid('ion-')
+    });
+    redraw();
+}
+
+var default_regions = [
+    {
+        'name': 'extracellular',
+        type: 'extracellular',
+        dx: 10,
+        tortuosity: 1.6,
+        volumefraction: 0.2,
+        uuid: 'region-extra'
+    },
+    {
+        'name': 'cyt',
+        type: 'cyt',
+        volumefraction: 1,
+        uuid: 'region-cyt'
+    }
+];
+var active_ions = [];
+
+function setup_ion_list(my_ions) {
+    active_ions = my_ions;
+    $('#ion_list').html('');
+    for (var i = 0; i < my_ions.length; i++) {
+        let my_ion = my_ions[i];
+        var selectedm2 = '', selectedm1 = '', selected0 = '', selected1 = '', selected2 = '';
+        switch(my_ion.charge) {
+            case -2:
+                selectedm2 = 'selected';
+                break;
+            case -1:
+                selectedm1 = 'selected';
+                break;
+            case 0:
+                selected0 = 'selected';
+                break;
+            case 1:
+                selected1 = 'selected';
+                break;
+            case 2:
+                selected2 = 'selected';
+                break;            
+        }
+        let charge_select = `<select data-uuid="${my_ion.uuid}" class="chargeselect">
+        <option value="-2" ${selectedm2}>2-</option>
+        <option value="-1" ${selectedm1}>-</option>
+        <option value="0" ${selected0}>0</option>
+        <option value="1" ${selected1}>+</option>
+        <option value="2" ${selected2}>2+</option>
+        </select>`
+
+        let my_item = $(`<li class="ionli" data-uuid="${my_ion.uuid}"><input type="text" class="dynamic-width ionlabel" data-uuid="${my_ion.uuid}" value="${my_ion.name}"/><sup>${charge_select}</sup></li>`);
+        $('#ion_list').append(my_item);
+        my_item.draggable({'helper': 'clone', scroll: false, zIndex: 2});
+        let my_input = my_item.find('input');
+        my_input.on('input', resize_input);
+        my_input.on('input', update_name);
+        my_item.find('.chargeselect').change(update_charge);
+        resize_input.call(my_input);
+    }
+}
+
+function update_name() {
+    let item = $(this);
+    let uuid = item.attr('data-uuid');
+    get_species_by_uuid(uuid).name = item.val();
+    update_placedions();
+}
+
+function update_charge() {
+    var item = $(this);
+    var value = parseInt(item.val());
+    var my_uuid = item.attr('data-uuid');
+    get_species_by_uuid(my_uuid).charge = value;
+    update_placedions();
+}
+
+function get_species_by_uuid(my_uuid) {
+    for (var i = 0; i < active_ions.length; i++) {
+        let my_ion = active_ions[i];
+        if (my_ion.uuid == my_uuid) {
+            return my_ion;
+        }
+    }
+}
+
+function ion_html(my_ion) {
+    let charge = '0';
+    if (my_ion.charge == 1) {
+        charge = '+';
+    } else if (my_ion.charge == -1) {
+        charge = '-';
+    } else if (my_ion.charge > 0) {
+        charge = my_ion.charge + '+';
+    } else if (my_ion.charge < 0) {
+        charge = Math.abs(my_ion.charge) + '-';
+    }
+    let result = my_ion.name;
+    if (charge != 0) {
+        result = `${result}<sup>${charge}</sup>`;
+    }
+    return result;
+}
+
+function insert_ion(uuid, x, y) {
+    var species = get_species_by_uuid(uuid);
+    var region_uuid = $(this).attr('data-uuid');
+    if (species.regions.includes(region_uuid)) {
+        // already have the ion in the region
+        return;
+    }
+    console.log('dropped onto', region_uuid);
+    species.regions.push(region_uuid);
+    x = x - $(this).offset().left;
+    y = y - $(this).offset().top;
+    var new_item = $(`<div class="ionli placedion" data-uuid="${uuid}" style="position: absolute; left: ${x}px; top: ${y}px">${ion_html(get_species_by_uuid(uuid))}</div>`);
+    $(this).append(new_item);
+    new_item.draggable({
+        containment: 'parent'
+    });
+}
+
+function update_placedions() {
+    $('.placedion').each(function() {
+        let uuid = $(this).attr('data-uuid');
+        $(this).html(ion_html(get_species_by_uuid(uuid)));
+    });
+}
+
+function getuuid(prefix) {
+    // not technically a UUID
+    // adapted from @mangalbhaskar's answer to https://stackoverflow.com/questions/105034/create-guid-uuid-in-javascript?page=2&tab=votes
+    return prefix+"uuid-"+((new Date).getTime().toString(16)+Math.floor(1E7*Math.random()).toString(16));
+}
+
+
+
+  </script>
+</head>
+<body>
+ 
+<ul id="ion_list">
+</ul>
+<div style="text-align:center; width:4em">
+<button id="newspecies">New</button>
+</div>
+<div id="extracellular" class="region" data-uuid="region-extra" style="position:absolute; height:100vh; top:0px; left: 0px;border: 1px solid black; margin-left:5em; right:0px">
+    <div class="regioncontrols"><input type="text" class="regionlabel dynamic-width" id="extracellularlabel"/> &nbsp;
+        dx: <input type="number" id="extracellulardx" class="numbersetting" min="0"> &nbsp;
+        tortuosity: <input type="number" id="extracellulartortuosity" class="numbersetting" min="1" step="0.05"> &nbsp;
+        volume fraction: <input type="number" id="extracellularvolumefraction" class="numbersetting" min="0" max="1" step="0.05"> &nbsp;
+    </div>
+    
+    <div id="cyt" class="region innerregion" data-uuid="region-cyt" style="width:75%; height:75%; border: 1px solid black; position: absolute; top:12.5%; left:12.5%" >
+        <div class="regioncontrols"><input type="text" class="regionlabel dynamic-width" id="cytlabel"/>
+            volume fraction: <input type="number" id="cytvolumefraction" class="numbersetting" min="0" max="1" step="0.05"> &nbsp;
+        </div>
+    </div>
+
+</div>
+
+<div id="trashcan" style="position:absolute; bottom:0px; font-size: 3em; text-align: center; width: 1.4em">&#128465;</div>
+<div style="display:block; width: 100%; top:0px; left:0px; position:absolute" id="testspancontainer">
+    <span id="testspan"></span>
+</div>
+</body>
+</html>
