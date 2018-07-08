@@ -27,6 +27,9 @@
           width: 4em;
           text-align: right;
       }
+      .floatright {
+          float: right;
+      }
       .regionlabel {
           border: none;
           text-align: left;
@@ -57,7 +60,6 @@
         greedy: true,
         drop: function(event, ui) {
             insert_species.call(this, $(ui.draggable).attr('data-uuid'), ui.helper.offset().left, ui.helper.offset().top);
-            return true;
         }
     });
     $('.innerregion').draggable({
@@ -101,8 +103,61 @@
     $('.dynamic-width').each(resize_input);
     $('#newspecies').click(new_ion);
     $('.numbersetting').on('input', sync_numbers).change(sync_numbers);
-
+    $('#newsubregionbutton').click(new_subregion);
   });
+
+function new_subregion() {
+    var uuid = getuuid('region-');
+    var x = (active_regions.length - 1) * 50;
+    var volume_fraction = 0.5;
+    var name = 'unnamed';
+    var html = `
+    <div class="region innerregion innermostregion" data-uuid="${uuid}" style="width:75%; height:75%; border: 1px solid black; position: absolute; top:12.5%; left:${x}px" >
+        <div class="regioncontrols"><input type="text" data-uuid="${uuid}" class="regionlabel dynamic-width" value="${name}"/>
+            volume fraction: <input type="number" data-field="volumefraction" data-uuid="${uuid}" value="${volume_fraction}" class="numbersetting" min="0" max="1" step="0.05"> &nbsp;
+            <button class="floatright deleteregion" data-uuid="${uuid}">&#x2718;</button>
+        </div>
+    </div>`
+    var obj = $(html);
+    $('#cyt').append(obj);
+    obj.find('.deleteregion').click(function() {
+        console.log('delete', this);
+        var uuid = $(this).attr('data-uuid');
+        for (var i = 0; i < active_regions.length; i++) {
+            var my_region = active_regions[i];
+            if (my_region.uuid == uuid) {
+                active_regions.splice(i, 1);
+                $('.innermostregion').each(function() {
+                    var item = $(this);
+                    if (item.attr('data-uuid') == uuid) {
+                        item.remove();
+                    }
+                });
+                break;
+            }
+        }
+    });
+    obj.draggable({
+        containment: 'parent',
+        stack: '.innermostregion'
+    }).resizable();
+    obj.find('.dynamic-width').on('input', resize_input).each(resize_input);
+    obj.droppable({
+        accept: "#ion_list > li",
+        greedy: true,
+        drop: function(event, ui) {
+            insert_species.call(this, $(ui.draggable).attr('data-uuid'), ui.helper.offset().left, ui.helper.offset().top);
+        }
+    });
+    obj.find('.numbersetting').on('input', sync_numbers).change(sync_numbers);
+    obj.find('.regionlabel').on('input', update_region_label);
+    active_regions.push({
+        uuid: uuid,
+        name: name,
+        type: 'organelle',
+        volumefraction: volume_fraction
+    })
+}
 
 function resize_input() {
     $(this).css({width: textWidth($(this).val())});
@@ -412,6 +467,7 @@ function getuuid(prefix) {
     <div id="cyt" class="region innerregion" data-uuid="region-cyt" style="width:75%; height:75%; border: 1px solid black; position: absolute; top:12.5%; left:12.5%" >
         <div class="regioncontrols"><input type="text" data-uuid="region-cyt" class="regionlabel dynamic-width" id="cytlabel"/>
             volume fraction: <input type="number" data-field="volumefraction" data-uuid="region-cyt" id="cytvolumefraction" class="numbersetting" min="0" max="1" step="0.05"> &nbsp;
+            <button id="newsubregionbutton" class="floatright">New subregion</button>
         </div>
     </div>
 
