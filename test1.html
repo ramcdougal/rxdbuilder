@@ -306,7 +306,7 @@ function ion_html(my_ion) {
 function ion_menu(item) {
     console.log('ion_menu');
     item = $(item).closest('div');
-    var main_html = ion_html(get_species_by_uuid(item.attr('data-uuid')));
+    var main_html = `<span class="nameblock">${ion_html(get_species_by_uuid(item.attr('data-uuid')))}</span>`;
     if (item.hasClass('ionlib')) {
         item.removeClass('ionlib');
         item.addClass('ionlic');
@@ -335,7 +335,7 @@ function insert_ion(uuid, x, y) {
     species.regions.push(region_uuid);
     x = x - $(this).offset().left;
     y = y - $(this).offset().top;
-    var new_item = $(`<div class="ionlib placedion" data-uuid="${uuid}" style="position: absolute; left: ${x}px; top: ${y}px">${ion_html(get_species_by_uuid(uuid))}</div>`);
+    var new_item = $(`<div class="ionlib placedion" data-uuid="${uuid}" data-region="${region_uuid}" style="position: absolute; left: ${x}px; top: ${y}px"><span class="nameblock">${ion_html(get_species_by_uuid(uuid))}</span></div>`);
     $(this).append(new_item);
     new_item.draggable({
         containment: 'parent'
@@ -345,7 +345,7 @@ function insert_ion(uuid, x, y) {
 function update_placedions() {
     $('.placedion').each(function() {
         let uuid = $(this).attr('data-uuid');
-        $(this).html(ion_html(get_species_by_uuid(uuid)));
+        $(this).find('.nameblock').html(ion_html(get_species_by_uuid(uuid)));
     });
 }
 
