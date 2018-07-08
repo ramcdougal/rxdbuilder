@@ -7,6 +7,7 @@
   <style>
       body {
           overflow:hidden;
+          user-select:none;
       }
       .region {
           overflow:hidden;
@@ -46,8 +47,8 @@
       }
       ul { list-style-type: none; margin: 0; padding: 0; margin-bottom: 10px; }
       .ionli {cursor: pointer; margin: 0.5em; width: 3em; height: 3em; line-height: 2.5em; background-color: white; text-align: center; border: 1px black solid; border-radius: 3em}
-      .ionlib {cursor: pointer; padding-top: 0.5em; width: 4em; height: 3.5em; background-color: white; text-align: center; border: 1px black solid; border-radius: 4em}
-      .ionlic {cursor: pointer; padding-top: 0.5em; width: 20em; height: 5em; background-color: white; text-align: center; border: 1px black solid; border-radius: 4em}
+      .species_icon_b {cursor: pointer; padding-top: 0.5em; width: 4em; height: 3.5em; background-color: white; text-align: center; border: 1px black solid; border-radius: 4em}
+      .species_icon_c {cursor: pointer; padding-top: 0.5em; width: 20em; height: 5em; background-color: white; text-align: center; border: 1px black solid; border-radius: 4em}
 </style>
   
   <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.12.4/jquery.min.js"></script>
@@ -80,7 +81,7 @@
                 if (my_ion.uuid == uuid) {
                     active_species.splice(i, 1);
                     // graphically remove species from regions where they don't belong
-                    $('.placedion').each(function() {
+                    $('.placedspecies').each(function() {
                         var item = $(this);
                         if (item.attr('data-uuid') == uuid) {
                             item.remove();
@@ -104,7 +105,17 @@
     $('#newspecies').click(new_ion);
     $('.numbersetting').on('input', sync_numbers).change(sync_numbers);
     $('#newsubregionbutton').click(new_subregion);
+
+    $('#templinediv').mousemove(draw_handler2).mouseup(process_line_attempt);
   });
+
+function process_line_attempt(event) {
+    active_mode = 'drag';
+    $('#templinediv').hide();
+    var target = document.elementFromPoint(event.pageX, event.pageY).closest('.placedspecies');
+    console.log('process_line_attempt', reaction_start_item, target);
+    restore_handler();
+}
 
 function new_subregion() {
     var uuid = getuuid('region-');
@@ -162,6 +173,20 @@ function new_subregion() {
 function resize_input() {
     $(this).css({width: textWidth($(this).val())});
 }
+
+function draw_handler2(event) {
+    console.log('draw_handler2');
+    if (event.buttons == 1 && active_mode == 'drawreaction') {
+        $('#templine').html(`<line x1="${reaction_start_x}" y1="${reaction_start_y}" x2="${event.pageX}" y2="${event.pageY}" stroke="black" />`);
+        console.log(`<line x1="${reaction_start_x}" y1="${reaction_start_y}" x2="${event.pageX}" y2="${event.pageY}" stroke="black" />`)
+        
+    } else {
+        restore_handler();
+        active_mode = 'drag';
+        $('#templinediv').hide();
+    }
+}
+
 
 function sync_numbers() {
     var item = $(this);
@@ -326,7 +351,7 @@ function update_name() {
     let item = $(this);
     let uuid = item.attr('data-uuid');
     get_species_by_uuid(uuid).name = item.val();
-    update_placedions();
+    update_placedspecies();
 }
 
 function update_charge() {
@@ -334,7 +359,7 @@ function update_charge() {
     var value = parseInt(item.val());
     var my_uuid = item.attr('data-uuid');
     get_species_by_uuid(my_uuid).charge = value;
-    update_placedions();
+    update_placedspecies();
 }
 
 function get_species_by_uuid(my_uuid) {
@@ -362,7 +387,7 @@ function ion_html(my_ion) {
         result = `${result}<sup>${charge}</sup>`;
     }
     result = `<b>${result}</b>`;
-    result = result + '<br/><span onclick="ion_menu(this)">&#9776;</span>'
+    result = result + '<br/><span onclick="species_menu(this)">&#9776;</span>'
     //result += '<br/>d=42.1'
     return result;
 }
@@ -378,13 +403,13 @@ function get_species_on_region_by_uuid(species_uuid, region_uuid) {
     }
 }
 
-function ion_menu(item) {
-    console.log('ion_menu');
+function species_menu(item) {
+    console.log('species_menu');
     item = $(item).closest('div');
     var main_html = `<span class="nameblock">${ion_html(get_species_by_uuid(item.attr('data-uuid')))}</span>`;
-    if (item.hasClass('ionlib')) {
-        item.removeClass('ionlib');
-        item.addClass('ionlic');
+    if (item.hasClass('species_icon_b')) {
+        item.removeClass('species_icon_b');
+        item.addClass('species_icon_c');
         var uuid = item.attr('data-uuid');
         var region = item.attr('data-region');
         var data_info = ` data-uuid="${uuid}" data-region="${region}" `;
@@ -399,12 +424,16 @@ function ion_menu(item) {
         item.html(content);
         content.find('.numberregionsetting').on('input', sync_species_on_region).change(sync_species_on_region);
     } else {
-        item.removeClass('ionlic');
-        item.addClass('ionlib');
+        item.removeClass('species_icon_c');
+        item.addClass('species_icon_b');
         item.html(main_html);
     }
     console.log(item);
 }
+
+var mode_timer;
+var active_mode = 'drag';
+var reaction_start_item, reaction_start_x, reaction_start_y;
 
 function insert_species(uuid, x, y) {
     var species = get_species_by_uuid(uuid);
@@ -426,15 +455,50 @@ function insert_species(uuid, x, y) {
     );
     x = x - $(this).offset().left;
     y = y - $(this).offset().top;
-    var new_item = $(`<div class="ionlib placedion" data-uuid="${uuid}" data-region="${region_uuid}" style="position: absolute; left: ${x}px; top: ${y}px"><span class="nameblock">${ion_html(get_species_by_uuid(uuid))}</span></div>`);
+    var new_item = $(`<div class="species_icon_b placedspecies" data-uuid="${uuid}" data-region="${region_uuid}" style="position: absolute; left: ${x}px; top: ${y}px"><span class="nameblock">${ion_html(get_species_by_uuid(uuid))}</span></div>`);
     $(this).append(new_item);
     new_item.draggable({
-        containment: 'parent'
+        containment: 'parent',
+        drag: function() {
+            active_mode = 'drag';
+        }
+    });
+    new_item.mouseenter(function() {
+        console.log(this, 'mouseenter');
+        mode_timer = setTimeout(function() {
+            console.log('timer', this);
+            new_item.draggable('disable').css('cursor', 'crosshair');
+            $('.innerregion').draggable('disable');
+            new_item.mousedown(function(event) {
+                active_mode = 'drawreaction';
+                reaction_start_x = event.pageX;
+                reaction_start_y = event.pageY;
+                reaction_start_item = new_item;
+                $('#templinediv').show();
+                $('#templine').html('');
+            });
+        },
+            500
+        );
+        new_item.mouseleave(function(event) {
+            console.log('mouseleave');
+            if (event.buttons != 1) {
+                restore_handler();
+            }
+        });
+
     });
 }
 
-function update_placedions() {
-    $('.placedion').each(function() {
+function restore_handler() {
+    active_mode = 'drag';
+    clearTimeout(mode_timer);
+    $('.innerregion').draggable('enable');
+    $('.placedspecies').draggable('enable').css('cursor', 'pointer');
+}
+
+function update_placedspecies() {
+    $('.placedspecies').each(function() {
         let uuid = $(this).attr('data-uuid');
         $(this).find('.nameblock').html(ion_html(get_species_by_uuid(uuid)));
     });
@@ -476,6 +540,9 @@ function getuuid(prefix) {
 <div id="trashcan" style="position:absolute; bottom:0px; font-size: 3em; text-align: center; width: 1.4em">&#128465;</div>
 <div style="display:block; width: 100%; top:0px; left:0px; position:absolute" id="testspancontainer">
     <span id="testspan"></span>
+</div>
+<div id="templinediv" style="z-index:1000; position:absolute; top:0px; left:0px; right:0px; bottom:0px; display:none">
+    <svg id="templine" style="width:100%; height:100%"></svg>
 </div>
 </body>
 </html>
