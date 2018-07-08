@@ -63,6 +63,7 @@
         minWidth: 100,
         // TODO: update minimums to keep ions and contained regions visible
     });
+    $('.regionlabel').on('input', update_region_label);
     $('#trashcan').droppable({
         accept: '#ion_list > li',
         drop: function(event, ui) {
@@ -89,11 +90,33 @@
 
     $('.dynamic-width').each(resize_input);
     $('#newspecies').click(new_ion);
+    $('.numbersetting').on('input', sync_numbers).change(sync_numbers);
 
   });
 
 function resize_input() {
     $(this).css({width: textWidth($(this).val())});
+}
+
+function sync_numbers() {
+    var item = $(this);
+    var uuid = item.attr('data-uuid');
+    get_region_by_uuid(uuid)[item.attr('data-field')] = parseFloat(item.val());
+}
+
+function get_region_by_uuid(uuid) {
+    for (var i = 0; i < active_regions.length; i++) {
+        var my_region = active_regions[i];
+        if (my_region.uuid == uuid) {
+            return my_region;
+        }
+    }
+}
+
+function update_region_label() {
+    var item = $(this);
+    var uuid = item.attr('data-uuid');
+    get_region_by_uuid(uuid).name = item.val();
 }
 
 function redraw() {
@@ -310,15 +333,15 @@ function getuuid(prefix) {
 <button id="newspecies">New</button>
 </div>
 <div id="extracellular" class="region" data-uuid="region-extra" style="position:absolute; height:100vh; top:0px; left: 0px;border: 1px solid black; margin-left:5em; right:0px">
-    <div class="regioncontrols"><input type="text" class="regionlabel dynamic-width" id="extracellularlabel"/> &nbsp;
-        dx: <input type="number" id="extracellulardx" class="numbersetting" min="0"> &nbsp;
-        tortuosity: <input type="number" id="extracellulartortuosity" class="numbersetting" min="1" step="0.05"> &nbsp;
-        volume fraction: <input type="number" id="extracellularvolumefraction" class="numbersetting" min="0" max="1" step="0.05"> &nbsp;
+    <div class="regioncontrols"><input type="text" data-uuid="region-extra" class="regionlabel dynamic-width" id="extracellularlabel"/> &nbsp;
+        dx: <input type="number" id="extracellulardx" data-uuid="region-extra" data-field="dx" class="numbersetting" min="0"> &nbsp;
+        tortuosity: <input type="number" data-uuid="region-extra" data-field="tortuosity" id="extracellulartortuosity" class="numbersetting" min="1" step="0.05"> &nbsp;
+        volume fraction: <input type="number" data-uuid="region-extra" data-field="volumefraction" id="extracellularvolumefraction" class="numbersetting" min="0" max="1" step="0.05"> &nbsp;
     </div>
     
     <div id="cyt" class="region innerregion" data-uuid="region-cyt" style="width:75%; height:75%; border: 1px solid black; position: absolute; top:12.5%; left:12.5%" >
-        <div class="regioncontrols"><input type="text" class="regionlabel dynamic-width" id="cytlabel"/>
-            volume fraction: <input type="number" id="cytvolumefraction" class="numbersetting" min="0" max="1" step="0.05"> &nbsp;
+        <div class="regioncontrols"><input type="text" data-uuid="region-cyt" class="regionlabel dynamic-width" id="cytlabel"/>
+            volume fraction: <input type="number" data-field="volumefraction" data-uuid="region-cyt" id="cytvolumefraction" class="numbersetting" min="0" max="1" step="0.05"> &nbsp;
         </div>
     </div>
 
