@@ -18,10 +18,9 @@
       }
       .reaction {
           background-color: white;
-          width: 10em;
-          height: 4em;
           border: 1px solid black;
           z-index: 2;
+          text-align: center;
       }
       .regioncontrols {
           position: absolute;
@@ -559,7 +558,7 @@ function insert_reaction(x, y, source, source_region, dest, dest_region) {
     };
     active_reactions.push(new_reaction);
     var new_item = $(`<div class="reaction reactionTarget" data-type="reaction" data-uuid="${uuid}" style="position: absolute; left: ${x}px; top: ${y}px">
-        <input type="text" data-uuid="${uuid}" class="reactionlabel dynamic-width" id="extracellularlabel"/></div>`);
+        <span class="nameblock"><input type="text" data-uuid="${uuid}" class="reactionlabel dynamic-width" id="extracellularlabel"/><br/>&#9776;</span></div>`);
     $('body').append(new_item);
     new_item.draggable({
         'containment': '#extracellular',
@@ -636,7 +635,7 @@ function restore_handler() {
     active_mode = 'drag';
     clearTimeout(mode_timer);
     $('.innerregion').draggable('enable');
-    $('.placedspecies').draggable('enable').css('cursor', 'pointer');
+    $('.reactionTarget').draggable('enable').css('cursor', 'pointer');
 }
 
 function update_placedspecies() {
