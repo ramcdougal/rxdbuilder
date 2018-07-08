@@ -128,7 +128,7 @@ function process_line_attempt(event) {
             }
         };
         all_connections.push(new_connection);
-        console.log('new line', new_connection);
+        draw_connections();
     }
     restore_handler();
 }
@@ -166,7 +166,8 @@ function new_subregion() {
     });
     obj.draggable({
         containment: 'parent',
-        stack: '.innermostregion'
+        stack: '.innermostregion',
+        drag: draw_connections
     }).resizable();
     obj.find('.dynamic-width').on('input', resize_input).each(resize_input);
     obj.droppable({
@@ -205,13 +206,27 @@ function draw_handler2(event) {
     if (event.buttons == 1 && active_mode == 'drawreaction') {
         //$('#templine').html(`${arrow_defs}<line marker-mid='url(#arrow)' x1="${reaction_start_x}" y1="${reaction_start_y}" x2="${event.pageX}" y2="${event.pageY}" stroke="black" />`);
         $('#templine').html(`${arrow_defs}<polyline marker-end='url(#arrow)' stroke-width='1' points="${reaction_start_x},${reaction_start_y} ${event.pageX},${event.pageY}" stroke="black" />`);
-        console.log(`${arrow_defs}<polyline marker-end='url(#arrow)' stroke-width='1' points="${reaction_start_x},${reaction_start_y} ${event.pageX},${event.pageY}" stroke="black" />`);
-        
     } else {
         restore_handler();
         active_mode = 'drag';
         $('#templinediv').hide();
     }
+}
+
+function draw_connections() {
+    // TODO: if everything is in the same region, draw it there so lines don't appear overtop of other regions
+    var svg = `${arrow_defs}`;
+    for (var i = 0; i < all_connections.length; i++) {
+        var my_connection = all_connections[i];
+        var source = my_connection.source;
+        var dest = my_connection.dest;
+        var start = $(`[data-uuid="${source.uuid}"][data-region="${source.region}"]`).offset();
+        var stop = $(`[data-uuid="${dest.uuid}"][data-region="${dest.region}"]`).offset();
+        console.log(start, stop);
+        svg = svg + `<polyline marker-end='url(#arrow)' stroke-width='1' points="${start.left + 20},${start.top + 20} ${stop.left + 20},${stop.top + 20}" stroke="black" />`;
+    }
+    svg = svg;
+    $('#alllinessvg').html(svg);
 }
 
 
@@ -366,7 +381,7 @@ function setup_ion_list(my_ions) {
 
         let my_item = $(`<li class="ionli" data-uuid="${my_ion.uuid}"><input type="text" class="dynamic-width ionlabel" data-uuid="${my_ion.uuid}" value="${my_ion.name}"/><sup>${charge_select}</sup></li>`);
         $('#ion_list').append(my_item);
-        my_item.draggable({'helper': 'clone', scroll: false, zIndex: 2});
+        my_item.draggable({'helper': 'clone', scroll: false, zIndex: 3});
         let my_input = my_item.find('input');
         my_input.on('input', resize_input);
         my_input.on('input', update_name);
@@ -483,16 +498,16 @@ function insert_species(uuid, x, y) {
     );
     x = x - $(this).offset().left;
     y = y - $(this).offset().top;
-    var new_item = $(`<div class="species_icon_b placedspecies" data-uuid="${uuid}" data-region="${region_uuid}" style="position: absolute; left: ${x}px; top: ${y}px"><span class="nameblock">${ion_html(get_species_by_uuid(uuid))}</span></div>`);
+    var new_item = $(`<div class="species_icon_b placedspecies" data-type="species" data-uuid="${uuid}" data-region="${region_uuid}" style="position: absolute; left: ${x}px; top: ${y}px"><span class="nameblock">${ion_html(get_species_by_uuid(uuid))}</span></div>`);
     $(this).append(new_item);
     new_item.draggable({
         containment: 'parent',
         drag: function() {
             active_mode = 'drag';
+            draw_connections();
         }
     });
     new_item.mouseenter(function() {
-        console.log(this, 'mouseenter');
         mode_timer = setTimeout(function() {
             console.log('timer', this);
             new_item.draggable('disable').css('cursor', 'crosshair');
@@ -509,7 +524,6 @@ function insert_species(uuid, x, y) {
             500
         );
         new_item.mouseleave(function(event) {
-            console.log('mouseleave');
             if (event.buttons != 1) {
                 restore_handler();
             }
@@ -572,6 +586,8 @@ function getuuid(prefix) {
 <div id="templinediv" style="z-index:1000; position:absolute; top:0px; left:0px; right:0px; bottom:0px; display:none">
     <svg id="templine" style="width:100%; height:100%"></svg>
 </div>
-<div id="alllines" style="z-index:1000; position:absolute; top:0px; left:0px; right:0px; bottom:0px; pointer-events:none"></div>
+<div id="alllines" style="z-index:2; position:absolute; top:0px; left:0px; right:0px; bottom:0px; pointer-events:none">
+    <svg id="alllinessvg" style="width:100%; height:100%"></svg>
+</div>
 </body>
 </html>
