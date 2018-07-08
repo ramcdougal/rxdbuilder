@@ -64,7 +64,7 @@
     }).resizable({
         minHeight:50,
         minWidth: 100,
-        // TODO: update minimums to keep ions and contained regions visible
+        // TODO: update minimums to keep species and contained regions visible
     });
     $('.regionlabel').on('input', update_region_label);
     $('#trashcan').droppable({
@@ -112,6 +112,15 @@ function sync_numbers() {
     var item = $(this);
     var uuid = item.attr('data-uuid');
     get_region_by_uuid(uuid)[item.attr('data-field')] = parseFloat(item.val());
+}
+
+function sync_species_on_region() {
+    var item = $(this);
+    var uuid = item.attr('data-uuid');
+    var region = item.attr('data-region');
+    var val = item.val();
+    if (item.attr('data-field') != 'rate') {val = parseFloat(val);}
+    get_species_on_region_by_uuid(uuid, region)[item.attr('data-field')] = val;
 }
 
 function get_region_by_uuid(uuid) {
@@ -303,6 +312,17 @@ function ion_html(my_ion) {
     return result;
 }
 
+function get_species_on_region_by_uuid(species_uuid, region_uuid) {
+    console.log('get_species_on_region', species_uuid, region_uuid);
+    var species = get_species_by_uuid(species_uuid);
+    var my_regions = species.regions;
+    for (var i = 0; i < my_regions.length; i++) {
+        if (my_regions[i].uuid == region_uuid) {
+            return my_regions[i];
+        }
+    }
+}
+
 function ion_menu(item) {
     console.log('ion_menu');
     item = $(item).closest('div');
@@ -310,13 +330,19 @@ function ion_menu(item) {
     if (item.hasClass('ionlib')) {
         item.removeClass('ionlib');
         item.addClass('ionlic');
+        var uuid = item.attr('data-uuid');
+        var region = item.attr('data-region');
+        var data_info = ` data-uuid="${uuid}" data-region="${region}" `;
+        var species_on_region = get_species_on_region_by_uuid(uuid, region);
         var params = `<table>
-        <tr><td style="text-align:right">d</td><td style="text-align:left"><input type="number" value="42.1"/></td></tr>
-        <tr><td style="text-align:right">initial</td><td style="text-align:left"><input type="number" value="24"/></td></tr>
-        <tr><td style="text-align:right">rate</td><td style="text-align:left"><input type="text" value="0"/></td></tr>
+        <tr><td style="text-align:right">d</td><td style="text-align:left"><input type="number" class="numberregionsetting" ${data_info} value="${species_on_region.d}" data-field="d"/></td></tr>
+        <tr><td style="text-align:right">initial</td><td style="text-align:left"><input type="number" class="numberregionsetting" ${data_info} value="${species_on_region.initial}" data-field="initial"/></td></tr>
+        <tr><td style="text-align:right">rate</td><td style="text-align:left"><input type="text" ${data_info} class="numberregionsetting" value="${species_on_region.rate}" data-field="rate"/></td></tr>
         </table>`
 
-        item.html(`<table style="width:100%"><tr><td style="padding-left:1em">${main_html}</td><td style="padding-left:1em; text-align: left">${params}</td></tr></table>`);
+        var content = $(`<table style="width:100%"><tr><td style="padding-left:1em">${main_html}</td><td style="padding-left:1em; text-align: left">${params}</td></tr></table>`)
+        item.html(content);
+        content.find('.numberregionsetting').on('input', sync_species_on_region).change(sync_species_on_region);
     } else {
         item.removeClass('ionlic');
         item.addClass('ionlib');
