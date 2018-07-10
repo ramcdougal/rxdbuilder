@@ -560,6 +560,16 @@ function reaction_menu(item) {
         if (my_reaction.mass_action) {
             mass_action_flag = ' checked';
         }
+
+        var states_block = '';
+        for (var i = 0; i < my_reaction.states.length; i++) {
+            states_block = states_block + get_reaction_line(uuid, i, my_reaction.states[i].name, my_reaction.states[i].rate);
+        }
+        if (my_reaction.states.length) {
+            states_block = '<tr><td colspan="2">States and rates</td></tr>' + states_block;
+        }
+
+
         var params = `<table>
         <tr><td style="text-align:right">kf</td><td style="text-align:left"><input type="text" class="numberregionsetting" ${data_info} value="${my_reaction.kf}" data-field="kf"/></td></tr>
         <tr><td style="text-align:right">kb</td><td style="text-align:left"><input type="text" class="numberregionsetting" ${data_info} value="${my_reaction.kb}" data-field="kb"/></td></tr>
@@ -567,7 +577,8 @@ function reaction_menu(item) {
         ${one_region_line}
         ${sources}
         ${dests}
-        <tr><td></td><td><button>Add state variable</button></td></tr>
+        ${states_block}
+        <tr><td></td><td><button ${data_info}>Add state variable</button></td></tr>
         </table>`;
         console.log(my_reaction);
         var content = $(`<table style="width:100%"><tr><td style="padding-left:1em">${nameblock_html}</td><td style="padding-left:1em; text-align: left">${params}</td></tr></table>`)
@@ -575,11 +586,36 @@ function reaction_menu(item) {
         content.find('.numberregionsetting').on('input', sync_reaction).change(sync_reaction);
         content.find('.numbersepeciesreactionsetting').on('input', sync_reaction_one_side).change(sync_reaction_one_side);
         content.find('.flagreactionsetting').change(sync_reaction_flag);
+        content.find('button').click(add_state_variable);
     }
     item.find('.nameblock input').val(my_reaction.name);
     item.find('.nameblock input').on('input', resize_input).on('input', update_reaction_name).on('change', update_reaction_name);
 }
 
+function add_state_variable() {
+    var item = $(this);
+    var uuid = item.attr('data-uuid');
+    var my_reaction = get_reaction_by_uuid(uuid);
+    var i = my_reaction.states.length;
+    if (!i) {
+        $('<tr><td colspan="2">States and rates</td></tr>').insertBefore(item.parent().parent());
+    }
+    var new_state = {
+        name: '',
+        rate: ''
+    };
+    var name = '';
+    var rate = '';
+
+    my_reaction.states.push(new_state);
+    var new_line = $(get_reaction_line(uuid, i, name, rate));
+    new_line.insertBefore(item.parent().parent());
+    new_line.find('.numbersepeciesreactionsetting').on('input', sync_reaction_one_side).change(sync_reaction_one_side);
+}
+
+function get_reaction_line(uuid, i, name, rate) {
+    return `<tr><td><input type="text" class="numbersepeciesreactionsetting" style="width:3em; text-align:right" placeholder='var' data-uuid=${uuid} data-i="${i}" value="${name}" data-field='name' data-side='states'/></td><td><input type="text" value="${rate}" placeholder='rate' data-uuid=${uuid} data-field='rate' data-i="${i}" data-side='states' class="numbersepeciesreactionsetting"/></td></tr>`
+}
 function sync_reaction_one_side() {
     var item = $(this);
     var uuid = item.attr('data-uuid');
