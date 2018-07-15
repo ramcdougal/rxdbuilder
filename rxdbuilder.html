@@ -73,6 +73,7 @@
         greedy: true,
         drop: function(event, ui) {
             insert_species.call(this, $(ui.draggable).attr('data-uuid'), ui.helper.offset().left, ui.helper.offset().top);
+            sync_data();
         }
     });
     $('.innerregion').draggable({
@@ -90,6 +91,7 @@
                 var my_ion = active_species[i];
                 if (my_ion.uuid == uuid) {
                     active_species.splice(i, 1);
+                    sync_data();
                     // graphically remove species from regions where they don't belong
                     $('.placedspecies').each(function() {
                         var item = $(this);
@@ -107,7 +109,9 @@
 
 
     active_species = default_species;
+    _update_data('active_species', active_species);
     active_regions = default_regions;
+    _update_data('active_regions', active_regions);
     redraw();
     $('.dynamic-width').on('input', resize_input);
 
@@ -158,6 +162,7 @@ function process_line_attempt(event) {
         draw_connections();
     }
     restore_handler();
+    sync_data();
 }
 
 function new_subregion() {
@@ -189,6 +194,7 @@ function new_subregion() {
                 break;
             }
         }
+        _update_data('active_regions', active_regions);
     });
     obj.draggable({
         containment: 'parent',
@@ -210,9 +216,10 @@ function new_subregion() {
         name: name,
         type: 'organelle',
         volumefraction: volume_fraction
-    })
+    });
+    sync_data();
 }
-
+    
 function resize_input() {
     $(this).css({width: textWidth($(this).val())});
 }
@@ -271,6 +278,7 @@ function sync_numbers() {
     var item = $(this);
     var uuid = item.attr('data-uuid');
     get_region_by_uuid(uuid)[item.attr('data-field')] = parseFloat(item.val());
+    sync_data();
 }
 
 function sync_species_on_region() {
@@ -280,6 +288,7 @@ function sync_species_on_region() {
     var val = item.val();
     if (item.attr('data-field') != 'rate') {val = parseFloat(val);}
     get_species_on_region_by_uuid(uuid, region)[item.attr('data-field')] = val;
+    sync_data();
 }
 
 function sync_reaction() {
@@ -287,6 +296,7 @@ function sync_reaction() {
     var uuid = item.attr('data-uuid');
     var val = item.val();
     get_reaction_by_uuid(uuid)[item.attr('data-field')] = val;
+    sync_data();
 }
 
 function get_region_by_uuid(uuid) {
@@ -302,6 +312,7 @@ function update_region_label() {
     var item = $(this);
     var uuid = item.attr('data-uuid');
     get_region_by_uuid(uuid).name = item.val();
+    sync_data();
 }
 
 function redraw() {
@@ -316,6 +327,7 @@ function setup_reactions(my_reactions) {
         $(`.reactionlabel[data-uuid=${my_reaction.uuid}]`).val(my_reaction.name);
     }
     $('.reactionlabel').each(resize_input);
+    sync_data();
 }
 
 function setup_regions(my_regions) {
@@ -335,6 +347,7 @@ function setup_regions(my_regions) {
             console.log('unknown region', my_region);
         }
     }
+    sync_data();
 }
 
 function textWidth(content){
@@ -379,6 +392,7 @@ function new_ion() {
         regions: [],
         uuid: getuuid('ion-')
     });
+    sync_data();
     redraw();
 }
 
@@ -440,6 +454,7 @@ function setup_ion_list(my_ions) {
         my_item.find('.chargeselect').change(update_charge);
         resize_input.call(my_input);
     }
+    sync_data();
 }
 
 function update_name() {
@@ -447,6 +462,7 @@ function update_name() {
     let uuid = item.attr('data-uuid');
     get_species_by_uuid(uuid).name = item.val();
     update_placedspecies();
+    sync_data();
 }
 
 function update_charge() {
@@ -455,6 +471,7 @@ function update_charge() {
     var my_uuid = item.attr('data-uuid');
     get_species_by_uuid(my_uuid).charge = value;
     update_placedspecies();
+    sync_data();
 }
 
 function get_species_by_uuid(my_uuid) {
@@ -590,6 +607,7 @@ function reaction_menu(item) {
     }
     item.find('.nameblock input').val(my_reaction.name);
     item.find('.nameblock input').on('input', resize_input).on('input', update_reaction_name).on('change', update_reaction_name);
+    sync_data();
 }
 
 function add_state_variable() {
@@ -611,6 +629,7 @@ function add_state_variable() {
     var new_line = $(get_reaction_line(uuid, i, name, rate));
     new_line.insertBefore(item.parent().parent());
     new_line.find('.numbersepeciesreactionsetting').on('input', sync_reaction_one_side).change(sync_reaction_one_side);
+    sync_data();
 }
 
 function get_reaction_line(uuid, i, name, rate) {
@@ -624,6 +643,7 @@ function sync_reaction_one_side() {
     var i = item.attr('data-i');
     console.log(uuid, side, i, field);
     get_reaction_by_uuid(uuid)[side][i][field] = item.val();
+    sync_data();
 }
 
 function sync_reaction_flag() {
@@ -631,6 +651,7 @@ function sync_reaction_flag() {
     var uuid = item.attr('data-uuid');
     var field = item.attr('data-field');
     get_reaction_by_uuid(uuid)[field] = this.checked ? true : false;
+    sync_data();
 }
 
 function species_menu(item) {
@@ -665,6 +686,12 @@ var mode_timer;
 var active_mode = 'drag';
 var reaction_start_item, reaction_start_x, reaction_start_y;
 var active_reactions = [];
+
+function sync_data() {
+    _update_data('active_reactions', active_reactions);
+    _update_data('active_species', active_species);
+    _update_data('active_regions', active_regions);
+}
 
 function insert_reaction(x, y, source, source_region, dest, dest_region) {
     var uuid = getuuid('reaction-');
@@ -705,6 +732,7 @@ function insert_reaction(x, y, source, source_region, dest, dest_region) {
     setup_reaction_source(new_item);
     new_item.find('input').on('input', resize_input).on('input', update_reaction_name).on('change', update_reaction_name);
     redraw();
+    sync_data();
 }
 
 function insert_species(uuid, x, y) {
@@ -737,6 +765,7 @@ function insert_species(uuid, x, y) {
         }
     });
     setup_reaction_source(new_item);
+    sync_data();
 }
 
 function setup_reaction_source(new_item) {
@@ -783,8 +812,9 @@ function update_placedspecies() {
 function update_reaction_name() {
     $('.reactionlabel').each(function() {
         let uuid = $(this).attr('data-uuid');
-        get_reaction_by_uuid(uuid).name = $(this).val();        
+        get_reaction_by_uuid(uuid).name = $(this).val();  
     });
+    sync_data();
 }
 
 function getuuid(prefix) {

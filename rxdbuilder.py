@@ -13,6 +13,7 @@ import platform
 import sys
 import os
 import base64
+import json
 
 # Fix for PyCharm hints warnings when using static methods
 WindowUtils = cef.WindowUtils()
@@ -81,6 +82,9 @@ class MainFrame(wx.Frame):
         wx.Frame.__init__(self, parent=None, id=wx.ID_ANY,
                           title='RxDBuilder', size=(WIDTH, HEIGHT))
         self.browser = None
+        self._active_regions = []
+        self._active_species = []
+        self._active_reactions = []
 
         # Must ignore X11 errors like 'BadWindow' and others by
         # installing X11 error handlers. This must be done after
@@ -141,8 +145,25 @@ class MainFrame(wx.Frame):
             icon = wx.IconFromBitmap(wx.Bitmap(icon_file, wx.BITMAP_TYPE_PNG))
             self.SetIcon(icon)
 
-    def save_model(self, *args, **kwargs):
-        print('hi from save_model', args, kwargs)
+    def save_model(self, event):
+        with wx.FileDialog(self, "Save RxDBuilder as JSON", wildcard="JSON files (*.json)|*.json",
+                           style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as fileDialog:
+
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return
+
+            pathname = fileDialog.GetPath()
+            try:
+                with open(pathname, 'w') as f:
+                    f.write(json.dumps({
+                            'regions': self._active_regions,
+                            'species': self._active_species,
+                            'reactions': self._active_reactions
+                        }, indent=4))
+            except IOError:
+                print('Save failed.')
+            except:
+                print('Mysterious save failure.')
 
     def create_menu(self):
         filemenu = wx.Menu()
@@ -170,7 +191,24 @@ class MainFrame(wx.Frame):
                                [0, 0, width, height])
         self.browser = cef.CreateBrowserSync(window_info,
                                              url=html_to_data_uri(my_html))
+        self.set_browser_callbacks()
         self.browser.SetClientHandler(FocusHandler())
+
+    def set_browser_callbacks(self):
+        self.bindings = cef.JavascriptBindings(
+            bindToFrames=False, bindToPopups=False)
+        self.bindings.SetFunction("_update_data", self._update_data)
+        self.browser.SetJavascriptBindings(self.bindings)
+
+    def _update_data(self, var, value):
+        if var == 'active_regions':
+            self._active_regions = value
+        elif var == 'active_species':
+            self._active_species = value
+        elif var == 'active_reactions':
+            self._active_reactions = value
+        else:
+            print('unknown data type:', var)
 
     def OnSetFocus(self, _):
         if not self.browser:
