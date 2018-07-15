@@ -165,13 +165,35 @@ class MainFrame(wx.Frame):
             except:
                 print('Mysterious save failure.')
 
+    def save_model_as_python(self, event):
+        with wx.FileDialog(self, "Save RxDBuilder as Python", wildcard="Python files (*.py)|*.py",
+                           style=wx.FD_SAVE | wx.FD_OVERWRITE_PROMPT) as fileDialog:
+
+            if fileDialog.ShowModal() == wx.ID_CANCEL:
+                return
+
+            pathname = fileDialog.GetPath()
+            try:
+                with open(pathname, 'w') as f:
+                    f.write(model_to_python(self._active_regions, self._active_species, self._active_reactions))
+            except IOError:
+                print('Save failed.')
+            except:
+                print('Mysterious save failure.')
+
+    def instantiate(self, event):
+        my_code = model_to_python(self._active_regions, self._active_species, self._active_reactions)
+        print('Running:\n' + my_code)
+        exec(my_code)
+
     def create_menu(self):
         filemenu = wx.Menu()
         m_save = filemenu.Append(1, "&Save model")
         self.Bind(wx.EVT_MENU, self.save_model, m_save)
         filemenu.Append(2, "Open model").Enable(False)
         filemenu.Append(3, "Import model from NEURON").Enable(False)
-        filemenu.Append(4, "Export to Python").Enable(False)
+        m_export_python = filemenu.Append(4, "Export to Python")
+        self.Bind(wx.EVT_MENU, self.save_model_as_python, m_export_python)
         filemenu.Append(5, "Export to SBML").Enable(False)
         filemenu.Append(6, "Import SBML").Enable(False)
         filemenu.AppendSeparator()
@@ -179,7 +201,8 @@ class MainFrame(wx.Frame):
         menubar = wx.MenuBar()
         menubar.Append(filemenu, "&File")
         instantiatemenu = wx.Menu()
-        instantiatemenu.Append(8, 'Instantiate').Enable(False)
+        m_instantiate = instantiatemenu.Append(8, 'Instantiate')
+        self.Bind(wx.EVT_MENU, self.instantiate, m_instantiate)
         menubar.Append(instantiatemenu, '&Instantiate')
         self.SetMenuBar(menubar)
 
@@ -318,6 +341,91 @@ class CefApp(wx.App):
         self.timer.Stop()
         return 0
 
+def model_to_python(regions, species, reactions):
+    result = '''from neuron import crxd as rxd
+from neuron import h
+'''
+
+    active_regions = set()
+    for sp in species:
+        for r in sp['regions']:
+            active_regions.add(r['uuid'])
+
+    region_uuid_lookup = {r['uuid']: r['name'] for r in regions}
+    species_uuid_lookup = {r['uuid']: r['name'] for r in species}
+
+
+    for r in regions:
+        if r['uuid'] in active_regions:
+            if r['type'] == 'cyt':
+                result += '{name} = rxd.Region(h.allsec(), nrn_region="i", name="{name}", geometry=rxd.FractionalVolume(volume_fraction={volumefraction}, neighbor_areas_fraction={volumefraction}, surface_fraction=1))\n'.format(**r)
+            elif r['type'] == 'extracellular':
+                result += '{name} = rxd.Extracellular(xlo=-500, ylo=-500, xhi=500, yhi=500, zlo=-500, zhi=500, dx={dx}, name="{name}", volume_fraction={volumefraction}, tortuosity={tortuosity})\n'.format(**r)
+            else:
+                result += '{name} = rxd.Region(h.allsec(), name="{name}", geometry=rxd.FractionalVolume(volume_fraction={volumefraction}, neighbor_areas_fraction={volumefraction}, surface_fraction=0))\n'.format(**r)
+
+    for sp in species:
+        if sp['regions']:
+            if len(sp['regions']) > 1:
+                print('warning: currently ignoring non-uniform d, initial and just using the first value')
+            d = sp['regions'][0]['d']
+            initial = sp['regions'][0]['initial']
+            sp_copy = dict(sp)
+            sp_copy['my_regions'] = '[' + ','.join(region_uuid_lookup[r['uuid']] for r in sp['regions']) + ']'
+            sp_copy['d'] = d
+            sp_copy['initial'] = initial
+            result += '{name} = rxd.Species({my_regions}, charge={charge}, name="{name}", d={d}, initial={initial})\n'.format(**sp_copy)
+            for r in sp['regions']:
+                if r['rate']:
+                    data = {
+                        'my_region':region_uuid_lookup[r['uuid']],
+                        'name': sp['name'],
+                        'rate': r['rate']
+                    }
+                    result += '{name}_{my_region}_rate = rxd.Rate({name}[{my_region}], {rate})\n'.format(**data)
+
+    for r in reactions:
+        r['custom_dynamics'] = not(r['mass_action'])
+        if r['states']:
+            print('Warning: reaction states currently ignored')
+        if r['all_regions']:
+            reactants = '+'.join('{}*{}'.format(s['stoichiometry'], species_uuid_lookup[s['uuid']]) for s in r['sources'])
+            products = '+'.join('{}*{}'.format(s['stoichiometry'], species_uuid_lookup[s['uuid']]) for s in r['dests'])
+            data = {
+                'custom_dynamics': not(r['mass_action']),
+                'reactants': reactants,
+                'products': products,
+                'name': r['name'],
+                'kf': r['kf'],
+                'kb': r['kb']
+            }
+            result += '{name} = rxd.Reaction({reactants}, {products}, {kf}, {kb}, custom_dynamics={custom_dynamics})\n'.format(**data)
+        else:
+            # check to see if multi-compartment or regular
+            involved_regions = set()
+            for s in r['sources']:
+                involved_regions.add(s['region'])
+            for s in r['dests']:
+                involved_regions.add(s['region'])
+            if len(involved_regions) > 1:
+                # multicompartment reaction
+                print('warning: multicompartment reactions currently unsupported')
+            else:
+                # single specific compartment reaction
+                reactants = '+'.join('{}*{}'.format(s['stoichiometry'], species_uuid_lookup[s['uuid']]) for s in r['sources'])
+                products = '+'.join('{}*{}'.format(s['stoichiometry'], species_uuid_lookup[s['uuid']]) for s in r['dests'])
+                data = {
+                    'custom_dynamics': not(r['mass_action']),
+                    'reactants': reactants,
+                    'products': products,
+                    'name': r['name'],
+                    'kf': r['kf'],
+                    'kb': r['kb'],
+                    'region': region_uuid_lookup[s['region']]
+                }
+                result += '{name} = rxd.Reaction({reactants}, {products}, {kf}, {kb}, custom_dynamics={custom_dynamics}, regions=[{region}])\n'.format(**data)
+
+    return result
 
 if __name__ == '__main__':
     main()
