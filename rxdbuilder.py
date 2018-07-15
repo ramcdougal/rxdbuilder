@@ -141,20 +141,24 @@ class MainFrame(wx.Frame):
             icon = wx.IconFromBitmap(wx.Bitmap(icon_file, wx.BITMAP_TYPE_PNG))
             self.SetIcon(icon)
 
+    def save_model(self, *args, **kwargs):
+        print('hi from save_model', args, kwargs)
+
     def create_menu(self):
         filemenu = wx.Menu()
-        filemenu.Append(0, "&Save model").Enable(False)
-        filemenu.Append(1, "Open model").Enable(False)
-        filemenu.Append(2, "Import model from NEURON").Enable(False)
-        filemenu.Append(3, "Export to Python").Enable(False)
-        filemenu.Append(4, "Export to SBML").Enable(False)
-        filemenu.Append(5, "Import SBML").Enable(False)
+        m_save = filemenu.Append(1, "&Save model")
+        self.Bind(wx.EVT_MENU, self.save_model, m_save)
+        filemenu.Append(2, "Open model").Enable(False)
+        filemenu.Append(3, "Import model from NEURON").Enable(False)
+        filemenu.Append(4, "Export to Python").Enable(False)
+        filemenu.Append(5, "Export to SBML").Enable(False)
+        filemenu.Append(6, "Import SBML").Enable(False)
         filemenu.AppendSeparator()
-        filemenu.Append(6, "Exit").Enable(False)
+        filemenu.Append(7, "Exit").Enable(False)
         menubar = wx.MenuBar()
         menubar.Append(filemenu, "&File")
         instantiatemenu = wx.Menu()
-        instantiatemenu.Append(7, 'Instantiate').Enable(False)
+        instantiatemenu.Append(8, 'Instantiate').Enable(False)
         menubar.Append(instantiatemenu, '&Instantiate')
         self.SetMenuBar(menubar)
 
